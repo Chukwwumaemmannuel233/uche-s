@@ -1,0 +1,90 @@
+export type Product = {
+  name: string;
+  category: string;
+  price: string;
+  tag: string;
+  detail: string;
+  finish: string;
+  image: string;
+};
+
+export const products: Product[] = [
+  {
+    name: "AeroCool French Door Fridge",
+    category: "Kitchen",
+    price: "NGN 1,420,000",
+    tag: "Best seller",
+    detail: "620L inverter cooling, water dispenser, frost-free storage.",
+    finish: "from-cyan-200 via-slate-100 to-zinc-300",
+    image:
+      "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    name: "VisionMax 65 inch OLED TV",
+    category: "Entertainment",
+    price: "NGN 1,180,000",
+    tag: "Low stock",
+    detail: "4K OLED panel, Dolby audio, gaming HDMI, ultra-thin frame.",
+    finish: "from-fuchsia-300 via-sky-200 to-slate-900",
+    image:
+      "https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    name: "PulseBook Pro 14",
+    category: "Computing",
+    price: "NGN 980,000",
+    tag: "Best seller",
+    detail: "Metal chassis, 16GB memory, 1TB SSD, all-day battery.",
+    finish: "from-emerald-200 via-teal-100 to-stone-300",
+    image:
+      "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    name: "ChefMate Smart Cooker",
+    category: "Kitchen",
+    price: "NGN 215,000",
+    tag: "New arrival",
+    detail: "Pressure, slow-cook, rice, steam, and saute presets.",
+    finish: "from-rose-200 via-orange-100 to-zinc-300",
+    image:
+      "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    name: "WashPro 12kg Front Loader",
+    category: "Laundry",
+    price: "NGN 735,000",
+    tag: "Low stock",
+    detail: "Steam wash, inverter motor, quick cycle, fabric sensors.",
+    finish: "from-indigo-200 via-white to-slate-300",
+    image:
+      "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    name: "Nova X Fold Phone",
+    category: "Gadgets",
+    price: "NGN 1,350,000",
+    tag: "Out of stock",
+    detail: "Foldable display, pro cameras, 5G, fast wireless charging.",
+    finish: "from-lime-200 via-yellow-100 to-zinc-300",
+    image:
+      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1200&q=80",
+  },
+];
+
+export const categories = [
+  "Fridges",
+  "Televisions",
+  "Phones",
+  "Laptops",
+  "Sound systems",
+  "Washers",
+  "Kitchen tech",
+  "Accessories",
+];
+
+export const services = [
+  "Same-day Abuja delivery on selected items",
+  "Installation for TVs, fridges, washers, and smart home devices",
+  "Warranty support and repair pickup coordination",
+  "Office and short-let appliance procurement",
+];
