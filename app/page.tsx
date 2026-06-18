@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ProductCard } from "@/components/product-card";
 import { Footer, Header } from "@/components/site-shell";
-import { products } from "@/lib/store";
+import { listProducts } from "@/lib/admin-store";
 
 const heroStats = [
   ["250+", "products ready to source"],
@@ -69,8 +69,8 @@ const promises = [
   ],
 ];
 
-export default function Home() {
-  const featuredProducts = products.slice(0, 3);
+export default async function Home() {
+  const featuredProducts = (await listProducts()).slice(0, 3);
 
   return (
     <div className="landing-wrap">
@@ -87,7 +87,7 @@ export default function Home() {
           />
           <div className="store-hero-shade" />
           <div className="store-hero-content">
-            <p className="store-kicker">Uche's Gadget Hub</p>
+            <p className="store-kicker">Uche&apos;s Gadget Hub</p>
             <h1>Reliable gadgets and home appliances for everyday living.</h1>
             <div className="store-hero-actions">
               <p>
@@ -234,7 +234,7 @@ export default function Home() {
 
           <div className="relative flex items-center justify-center min-h-[400px]">
             <Image
-              src="/images/cutouts/tcl-tv-cutout.png"
+              src="/images/cutouts/air-condition-cutout.jpg"
               alt=""
               width={360}
               height={240}
@@ -242,7 +242,7 @@ export default function Home() {
             />
 
             <Image
-              src="/images/cutouts/iphone-cutout.png"
+              src="/images/cutouts/fridge-cutout.jpg"
               alt=""
               width={160}
               height={220}
@@ -250,7 +250,7 @@ export default function Home() {
             />
 
             <Image
-              src="/images/cutouts/ipad-cutout.png"
+              src="/images/cutouts/inverter-cutout.jpg"
               alt=""
               width={220}
               height={180}

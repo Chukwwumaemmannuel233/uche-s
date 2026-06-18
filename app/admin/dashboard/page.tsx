@@ -1,131 +1,134 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { AdminShell, adminStyles, statusClass } from "@/components/admin-shell";
+import type { Order } from "@/lib/orders";
 
-const stats = [
-  { label: "Total Orders", value: "24" },
-  { label: "Pending Orders", value: "6" },
-  { label: "Products", value: "38" },
-  { label: "Revenue", value: "₦ 480,000" },
-];
-
-const recentOrders = [
-  { id: "ORD-001", customer: "Emeka Okafor", product: "Samsung 65\" TV", status: "Pending", date: "June 14, 2026" },
-  { id: "ORD-002", customer: "Ngozi Adeyemi", product: "iPhone 15 Pro", status: "Delivered", date: "June 13, 2026" },
-  { id: "ORD-003", customer: "Tunde Balogun", product: "LG Washing Machine", status: "Processing", date: "June 12, 2026" },
-  { id: "ORD-004", customer: "Amaka Eze", product: "Sony Soundbar", status: "Pending", date: "June 11, 2026" },
-];
-
-const statusColors: Record<string, string> = {
-  Pending: "admin-badge-pending",
-  Processing: "admin-badge-processing",
-  Delivered: "admin-badge-delivered",
-  Cancelled: "admin-badge-cancelled",
+type Summary = {
+  totalOrders: number;
+  pendingOrders: number;
+  products: number;
+  revenue: number;
+  recentOrders: Order[];
 };
+
+const emptySummary: Summary = {
+  totalOrders: 0,
+  pendingOrders: 0,
+  products: 0,
+  revenue: 0,
+  recentOrders: [],
+};
+
+function formatNaira(value: number) {
+  return `NGN ${new Intl.NumberFormat("en-NG").format(value)}`;
+}
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const [summary, setSummary] = useState<Summary>(emptySummary);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (localStorage.getItem("admin_auth") !== "true") {
-      router.push("/admin");
+    async function loadDashboard() {
+      const auth = await fetch("/api/admin/me");
+      const authData = await auth.json();
+      if (!authData.admin) {
+        router.push("/admin");
+        return;
+      }
+
+      fetch("/api/admin/summary")
+        .then((response) => response.json())
+        .then(setSummary)
+        .catch(() => toast.error("Could not load admin summary"))
+        .finally(() => setLoading(false));
     }
+
+    loadDashboard();
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_auth");
-    router.push("/admin");
-  };
+  const stats = [
+    { label: "Total Orders", value: summary.totalOrders },
+    { label: "Pending Orders", value: summary.pendingOrders },
+    { label: "Products", value: summary.products },
+    { label: "Revenue", value: formatNaira(summary.revenue) },
+  ];
 
   return (
-    <div className="admin-wrap">
-      {/* Sidebar */}
-      <aside className="admin-sidebar">
-        <div className="admin-sidebar-logo">
-          <span className="brand-mark">UG</span>
-          <div>
-            <span className="site-logo-name">Uche's</span>
-            <span className="site-logo-sub">Admin Panel</span>
+    <AdminShell active="/admin/dashboard">
+      <div className={adminStyles.topbar}>
+        <div>
+          <h1 className={adminStyles.title}>Dashboard</h1>
+          <p className={adminStyles.sub}>Welcome back. Here&apos;s what&apos;s happening today.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <div key={stat.label} className={adminStyles.card}>
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-[#536476]">
+              {stat.label}
+            </span>
+            <strong className="mt-3 block text-3xl font-black text-[#111827]">
+              {loading ? "..." : stat.value}
+            </strong>
           </div>
+        ))}
+      </div>
+
+      <section className="grid gap-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-black text-[#111827]">Recent Orders</h2>
+          <Link href="/admin/orders" className="text-sm font-black text-[#1273c4]">
+            View all
+          </Link>
         </div>
 
-        <nav className="admin-nav">
-          <Link href="/admin/dashboard" className="admin-nav-link is-active">
-            Dashboard
-          </Link>
-          <Link href="/admin/orders" className="admin-nav-link">
-            Orders
-          </Link>
-          <Link href="/admin/products" className="admin-nav-link">
-            Products
-          </Link>
-        </nav>
-
-        <button onClick={handleLogout} className="admin-logout-btn">
-          Sign Out
-        </button>
-      </aside>
-
-      {/* Main */}
-      <main className="admin-main">
-        <div className="admin-topbar">
-          <div>
-            <h1 className="admin-page-title">Dashboard</h1>
-            <p className="admin-page-sub">Welcome back — here's what's happening today.</p>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="admin-stats-grid">
-          {stats.map((stat) => (
-            <div key={stat.label} className="admin-stat-card">
-              <span>{stat.label}</span>
-              <strong>{stat.value}</strong>
-            </div>
-          ))}
-        </div>
-
-        {/* Recent Orders */}
-        <div className="admin-section">
-          <div className="admin-section-head">
-            <h2>Recent Orders</h2>
-            <Link href="/admin/orders" className="admin-view-all">
-              View all →
-            </Link>
-          </div>
-
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
+        <div className={adminStyles.tableWrap}>
+          <table className={adminStyles.table}>
+            <thead>
+              <tr>
+                {["Order ID", "Customer", "Product", "Date", "Status"].map(
+                  (heading) => (
+                    <th key={heading} className={adminStyles.th}>
+                      {heading}
+                    </th>
+                  )
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
                 <tr>
-                  <th>Order ID</th>
-                  <th>Customer</th>
-                  <th>Product</th>
-                  <th>Date</th>
-                  <th>Status</th>
+                  <td className={adminStyles.td} colSpan={5}>
+                    Loading recent orders...
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {recentOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td className="admin-order-id">{order.id}</td>
-                    <td>{order.customer}</td>
-                    <td>{order.product}</td>
-                    <td className="admin-muted">{order.date}</td>
-                    <td>
-                      <span className={`admin-badge ${statusColors[order.status]}`}>
+              ) : (
+                summary.recentOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-slate-50">
+                    <td className={`${adminStyles.td} font-black text-[#1273c4]`}>
+                      {order.id}
+                    </td>
+                    <td className={adminStyles.td}>{order.customer}</td>
+                    <td className={adminStyles.td}>{order.product}</td>
+                    <td className={adminStyles.td}>{order.date}</td>
+                    <td className={adminStyles.td}>
+                      <span className={statusClass(order.status)}>
                         {order.status}
                       </span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      </main>
-    </div>
+      </section>
+    </AdminShell>
   );
 }

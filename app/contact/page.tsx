@@ -1,9 +1,18 @@
+"use client";
+
 import Link from "next/link";
-import { Footer, Header } from "@/components/site-shell";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Header } from "@/components/site-shell";
+
+const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "2348005550199";
+const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+  "Hello Uche's Gadget Hub, I need product help."
+)}`;
 
 const contactMethods = [
-  ["Call sales", "+234 800 555 0199", "Speak with the team about stock, prices, and delivery."],
-  ["WhatsApp", "+234 800 555 0199", "Send product photos, model names, or a shopping list."],
+  ["WhatsApp sales", "+234 800 555 0199", "Speak with the team about stock, prices, and delivery."],
+  ["Product photos", "+234 800 555 0199", "Send product photos, model names, or a shopping list."],
   ["Showroom", "Abuja showroom", "Visit Monday to Saturday, 9:00 - 18:00."],
 ];
 
@@ -21,6 +30,43 @@ const nextSteps = [
 ];
 
 export default function ContactPage() {
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    requestType: "",
+    product: "",
+    message: "",
+  });
+  const [loading, setLoading] = useState(false);
+
+  const updateForm = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+  };
+
+  const submitForm = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      toast.success("Request sent. The admin team can now see it.");
+      setForm({ name: "", phone: "", requestType: "", product: "", message: "" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send request");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="landing-wrap">
       <Header />
@@ -43,14 +89,14 @@ export default function ContactPage() {
               The team can reply with availability, price, delivery timing, and
               suitable alternatives before you pay.
             </p>
-            <Link href="tel:+2348005550199" className="primary-btn">
-              Call sales
+            <Link href={whatsappUrl} className="primary-btn" target="_blank">
+              Chat on WhatsApp
             </Link>
           </div>
         </section>
 
         <section className="contact-main-grid">
-          <form className="contact-form contact-request-form">
+          <form className="contact-form contact-request-form" onSubmit={submitForm}>
             <div>
               <p className="eyebrow">Request form</p>
               <h2>Get product help</h2>
@@ -59,17 +105,31 @@ export default function ContactPage() {
             <div className="contact-field-grid">
               <label>
                 <span>Full name</span>
-                <input placeholder="Your name" />
+                <input
+                  name="name"
+                  onChange={updateForm}
+                  placeholder="Your name"
+                  value={form.name}
+                />
               </label>
               <label>
                 <span>Phone number</span>
-                <input placeholder="+234..." />
+                <input
+                  name="phone"
+                  onChange={updateForm}
+                  placeholder="+234..."
+                  value={form.phone}
+                />
               </label>
             </div>
 
             <label>
               <span>What do you need?</span>
-              <select defaultValue="">
+              <select
+                name="requestType"
+                onChange={updateForm}
+                value={form.requestType}
+              >
                 <option value="" disabled>
                   Select request type
                 </option>
@@ -81,18 +141,28 @@ export default function ContactPage() {
 
             <label>
               <span>Product or budget</span>
-              <input placeholder="Example: 65 inch TV under NGN 1.2m" />
+              <input
+                name="product"
+                onChange={updateForm}
+                placeholder="Example: 65 inch TV under NGN 1.2m"
+                value={form.product}
+              />
             </label>
 
             <label>
               <span>Message</span>
               <textarea
+                name="message"
+                onChange={updateForm}
                 placeholder="Tell us the brand, model, size, delivery location, or installation need."
                 rows={6}
+                value={form.message}
               />
             </label>
 
-            <button type="button">Send request</button>
+            <button disabled={loading} type="submit">
+              {loading ? "Sending..." : "Send request"}
+            </button>
           </form>
 
           <aside className="contact-side-panel">
@@ -118,7 +188,6 @@ export default function ContactPage() {
           </aside>
         </section>
       </main>
-      {/* <Footer /> */}
     </div>
   );
 }

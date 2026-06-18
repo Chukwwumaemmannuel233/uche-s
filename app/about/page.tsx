@@ -37,10 +37,10 @@ export default function AboutPage() {
       <main className="about-page">
         <section className="about-hero">
           <div className="about-hero-copy">
-            <p className="eyebrow">About Uche's Gadget Hub</p>
+            <p className="eyebrow">About Uche&apos;s Gadget Hub</p>
             <h1>Abuja-based gadget and appliance support for everyday buyers.</h1>
             <p>
-              Uche's Gadget Hub helps customers source reliable electronics,
+              Uche&apos;s Gadget Hub helps customers source reliable electronics,
               home appliances, accessories, and setup support without turning a
               simple purchase into a confusing process.
             </p>

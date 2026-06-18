@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { CartProvider } from "@/components/cart-provider";
+import { WhatsAppFloat } from "@/components/site-shell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,7 +32,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        {children}
+        <CartProvider>
+          {children}
+          <WhatsAppFloat />
+        </CartProvider>
         <Toaster richColors position="top-right" />
         </body>
     </html>

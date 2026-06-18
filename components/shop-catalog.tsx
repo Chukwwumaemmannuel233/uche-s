@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { AddToCartButton } from "@/components/add-to-cart-button";
 import type { Product } from "@/lib/store";
 
 type ShopCatalogProps = {
@@ -120,9 +121,7 @@ export function ShopCatalog({ categories, products }: ShopCatalogProps) {
               {product.detail}
             </p>
             <div className="mt-5 flex gap-3">
-              <Link href="/cart" className="shop-card-primary">
-                Add to cart
-              </Link>
+              <AddToCartButton product={product} className="shop-card-primary" />
               <button
                 className="shop-card-secondary"
                 onClick={() => setSelectedProduct(product)}
@@ -175,9 +174,10 @@ export function ShopCatalog({ categories, products }: ShopCatalogProps) {
               <strong>{selectedProduct.price}</strong>
               <p>{selectedProduct.detail}</p>
               <div>
-                <Link href="/cart" className="primary-btn">
-                  Add to cart
-                </Link>
+                <AddToCartButton
+                  product={selectedProduct}
+                  className="primary-btn"
+                />
                 <Link href="/contact" className="secondary-btn">
                   Confirm availability
                 </Link>

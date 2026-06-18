@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { AddToCartButton } from "@/components/add-to-cart-button";
 import type { Product } from "@/lib/store";
 
 export function ProductCard({ product }: { product: Product }) {
@@ -28,12 +29,10 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
       <p className="mt-3 text-sm leading-6 text-[#536476]">{product.detail}</p>
       <div className="mt-5 flex gap-3">
-        <Link
-          href="/cart"
+        <AddToCartButton
+          product={product}
           className="rounded-full bg-[#1273c4] px-4 py-3 text-sm font-black text-white transition hover:bg-[#0a4f8f]"
-        >
-          Add to cart
-        </Link>
+        />
         <Link
           href="/contact"
           className="rounded-full border border-[#d8e0ea] px-4 py-3 text-sm font-black text-[#111827] transition hover:border-[#1273c4] hover:text-[#0a4f8f]"

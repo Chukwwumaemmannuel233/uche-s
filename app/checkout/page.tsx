@@ -4,7 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Header, Footer } from "@/components/site-shell";
-import { products } from "@/lib/store";
+import { useCart } from "@/components/cart-provider";
 import type { Form } from "@/components/paystack-button";
 
 const PaystackButton = dynamic(() => import("@/components/paystack-button"), {
@@ -16,11 +16,6 @@ const PaystackButton = dynamic(() => import("@/components/paystack-button"), {
   ),
 });
 
-const cartItems = products.slice(0, 3).map((product) => ({
-  ...product,
-  quantity: 1,
-}));
-
 const nigerianStates = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue",
   "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu",
@@ -30,6 +25,7 @@ const nigerianStates = [
 ];
 
 export default function CheckoutPage() {
+  const { items: cartItems, count: totalItems } = useCart();
   const [form, setForm] = useState<Form>({
     firstName: "",
     lastName: "",
@@ -49,7 +45,10 @@ export default function CheckoutPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const totalItems = cartItems.reduce((t, i) => t + i.quantity, 0);
+  const orderTotal = cartItems.reduce(
+    (total, item) => total + item.amount * item.quantity,
+    0
+  );
 
   return (
     <div className="landing-wrap">
@@ -198,7 +197,7 @@ export default function CheckoutPage() {
             </label>
           </div>
 
-          <PaystackButton form={form} />
+          <PaystackButton amount={orderTotal} form={form} items={cartItems} />
         </section>
 
         {/* RIGHT — Order Summary */}
@@ -229,10 +228,14 @@ export default function CheckoutPage() {
               <span>Delivery</span>
               <strong>To confirm</strong>
             </div>
+            <div className="summary-line">
+              <span>Total</span>
+              <strong>NGN {new Intl.NumberFormat("en-NG").format(orderTotal)}</strong>
+            </div>
           </div>
 
           <Link href="/cart" className="secondary-btn checkout-back-btn">
-            ← Edit Cart
+            Back to cart
           </Link>
         </aside>
       </main>

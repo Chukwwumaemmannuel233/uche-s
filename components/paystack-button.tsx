@@ -1,9 +1,7 @@
 "use client";
 
-// import { usePaystackPayment } from "react-paystack";
-import { useRouter } from "next/navigation";
-
-const PAYSTACK_PUBLIC_KEY = "pk_test_f943af330ed1405d4b95d4b01e207f842b839420"; // use pk_test_ not sk_test_
+import { useState } from "react";
+import { toast } from "sonner";
 
 export type Form = {
   firstName: string;
@@ -18,38 +16,16 @@ export type Form = {
   notes: string;
 };
 
-export default function PaystackButton({ form }: { form: Form }) {
-  const router = useRouter();
+type PaystackButtonProps = {
+  amount: number;
+  form: Form;
+  items: { id: string; name: string; quantity: number; price: string; amount: number }[];
+};
 
-  const config = {
-    reference: `order_${Date.now()}`,
-    email: form.email,
-    amount: 10000 * 100,
-    publicKey: PAYSTACK_PUBLIC_KEY,
-    metadata: {
-      custom_fields: [
-        {
-          display_name: "Customer Name",
-          variable_name: "customer_name",
-          value: `${form.firstName} ${form.lastName}`,
-        },
-        {
-          display_name: "Phone",
-          variable_name: "phone",
-          value: form.phone,
-        },
-        {
-          display_name: "Delivery Address",
-          variable_name: "address",
-          value: `${form.address}, ${form.city}, ${form.state}, ${form.country}`,
-        },
-      ],
-    },
-  };
+export default function PaystackButton({ amount, form, items }: PaystackButtonProps) {
+  const [loading, setLoading] = useState(false);
 
-//   const initializePayment = usePaystackPayment(config);
-
-  const handlePay = () => {
+  const handlePay = async () => {
     if (
       !form.firstName ||
       !form.lastName ||
@@ -59,27 +35,65 @@ export default function PaystackButton({ form }: { form: Form }) {
       !form.city ||
       !form.state
     ) {
-      alert("Please fill in all required fields before proceeding.");
+      toast.error("Please fill in all required checkout fields.");
       return;
     }
 
-    // initializePayment({
-    //   onSuccess: () => {
-    //     const params = new URLSearchParams({
-    //       firstName: form.firstName,
-    //       phone: form.phone,
-    //       city: form.city,
-    //       state: form.state,
-    //     });
-    //     router.push(`/checkout-success?${params.toString()}`);
-    //   },
-    //   onClose: () => {},
-    // });
+    setLoading(true);
+
+    try {
+      const callbackParams = new URLSearchParams({
+        firstName: form.firstName,
+        phone: form.phone,
+        city: form.city,
+        state: form.state,
+      });
+
+      const response = await fetch("/api/paystack/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email,
+          amount,
+          customer: {
+            name: `${form.firstName} ${form.lastName}`,
+            phone: form.phone,
+            city: form.city,
+            state: form.state,
+          },
+          items,
+          callbackUrl: `${window.location.origin}/checkout-success?${callbackParams.toString()}`,
+          metadata: {
+            customer_name: `${form.firstName} ${form.lastName}`,
+            phone: form.phone,
+            address: `${form.address}, ${form.city}, ${form.state}, ${form.country}`,
+            notes: form.notes,
+            items,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to start payment.");
+      }
+
+      toast.success("Redirecting to Paystack checkout");
+      window.location.href = data.authorization_url;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to start payment.");
+      setLoading(false);
+    }
   };
 
   return (
-    <button onClick={handlePay} className="primary-btn checkout-submit-btn">
-      Place Order
+    <button
+      onClick={handlePay}
+      className="primary-btn checkout-submit-btn"
+      disabled={loading}
+    >
+      {loading ? "Starting payment..." : "Place Order"}
     </button>
   );
 }

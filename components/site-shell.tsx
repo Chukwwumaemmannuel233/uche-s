@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { MessageCircle } from "lucide-react";
+import { useCart } from "@/components/cart-provider";
 
 const navItems = [
   { href: "/shop", label: "Shop" },
@@ -27,6 +31,8 @@ function CartIcon() {
 }
 
 export function Header() {
+  const { count } = useCart();
+
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -36,7 +42,7 @@ export function Header() {
 
           <div>
             <span className="block text-sm font-black uppercase tracking-[0.16em] text-[#0f172a]">
-              Uche's
+              Uche&apos;s
             </span>
 
             <span className="text-xs font-bold uppercase tracking-[0.14em] text-[#1273c4]">
@@ -74,9 +80,11 @@ export function Header() {
           >
             <CartIcon />
 
-            <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
-              3
-            </span>
+            {count > 0 ? (
+              <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                {count}
+              </span>
+            ) : null}
           </Link>
         </div>
       </nav>
@@ -104,6 +112,25 @@ export function Header() {
   );
 }
 
+export function WhatsAppFloat() {
+  const phone = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "2348005550199";
+  const message = encodeURIComponent(
+    "Hello Uche's Gadget Hub, I need help with a product."
+  );
+
+  return (
+    <a
+      aria-label="Chat with Uche's Gadget Hub on WhatsApp"
+      href={`https://wa.me/${phone}?text=${message}`}
+      className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-2xl transition hover:scale-105"
+      target="_blank"
+      rel="noreferrer"
+    >
+      <MessageCircle className="h-7 w-7" />
+    </a>
+  );
+}
+
 export function Footer() {
   const year = new Date().getFullYear();
 
@@ -115,7 +142,7 @@ export function Footer() {
           <div>
             <div className="mb-4 flex items-center gap-3">
               <span className="brand-mark">UG</span>
-              <h3 className="font-bold">Uche's Gadget Hub</h3>
+              <h3 className="font-bold">Uche&apos;s Gadget Hub</h3>
             </div>
 
             <p className="text-sm text-slate-300">
@@ -166,7 +193,7 @@ export function Footer() {
         </div>
 
         <div className="mt-10 border-t border-slate-700 pt-6 flex flex-col gap-2 text-sm text-slate-400 md:flex-row md:justify-between">
-          <span>© {year} Uche's Gadget Hub</span>
+          <span>© {year} Uche&apos;s Gadget Hub</span>
           <span>Gadgets, appliances, delivery, and setup support.</span>
         </div>
       </div>

@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Header, Footer } from "@/components/site-shell";
 import { products } from "@/lib/store";
+import { useCart } from "@/components/cart-provider";
 
 const cartItems = products.slice(0, 3).map((product) => ({
   ...product,
@@ -13,10 +14,22 @@ const cartItems = products.slice(0, 3).map((product) => ({
 
 function SuccessContent() {
   const params = useSearchParams();
+  const { clearCart } = useCart();
   const firstName = params.get("firstName") || "Customer";
   const phone = params.get("phone") || "";
   const city = params.get("city") || "";
   const state = params.get("state") || "";
+  const reference = params.get("reference");
+
+  useEffect(() => {
+    if (!reference) return;
+
+    fetch(`/api/paystack/verify/${reference}`)
+      .then((response) => {
+        if (response.ok) clearCart();
+      })
+      .catch(() => {});
+  }, [clearCart, reference]);
 
   return (
     <main className="checkout-success">
@@ -37,6 +50,11 @@ function SuccessContent() {
           contact you shortly on <strong>{phone}</strong> to arrange delivery
           {city && state ? ` to ${city}, ${state}` : ""}.
         </p>
+        {reference ? (
+          <p className="checkout-success-copy">
+            Payment reference: <strong>{reference}</strong>
+          </p>
+        ) : null}
 
         {/* Items ordered */}
         <div className="checkout-success-items">

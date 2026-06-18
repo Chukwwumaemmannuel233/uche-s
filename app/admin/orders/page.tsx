@@ -1,146 +1,157 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-
-const initialOrders = [
-  { id: "ORD-001", customer: "Emeka Okafor", phone: "08012345678", product: "Samsung 65\" TV", city: "Lagos", state: "Lagos", status: "Pending", date: "June 14, 2026" },
-  { id: "ORD-002", customer: "Ngozi Adeyemi", phone: "08087654321", product: "iPhone 15 Pro", city: "Abuja", state: "FCT - Abuja", status: "Delivered", date: "June 13, 2026" },
-  { id: "ORD-003", customer: "Tunde Balogun", phone: "08023456789", product: "LG Washing Machine", city: "Ibadan", state: "Oyo", status: "Processing", date: "June 12, 2026" },
-  { id: "ORD-004", customer: "Amaka Eze", phone: "08034567890", product: "Sony Soundbar", city: "Enugu", state: "Enugu", status: "Pending", date: "June 11, 2026" },
-  { id: "ORD-005", customer: "Chidi Obi", phone: "08045678901", product: "Hisense Fridge", city: "Port Harcourt", state: "Rivers", status: "Cancelled", date: "June 10, 2026" },
-];
-
-const allStatuses = ["Pending", "Processing", "Delivered", "Cancelled"];
-
-const statusColors: Record<string, string> = {
-  Pending: "admin-badge-pending",
-  Processing: "admin-badge-processing",
-  Delivered: "admin-badge-delivered",
-  Cancelled: "admin-badge-cancelled",
-};
+import { toast } from "sonner";
+import { AdminShell, adminStyles, statusClass } from "@/components/admin-shell";
+import { orderStatuses } from "@/lib/orders";
+import type { Order, OrderStatus } from "@/lib/orders";
 
 export default function AdminOrdersPage() {
   const router = useRouter();
-  const [orders, setOrders] = useState(initialOrders);
-  const [filter, setFilter] = useState("All");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filter, setFilter] = useState<OrderStatus | "All">("All");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (localStorage.getItem("admin_auth") !== "true") {
-      router.push("/admin");
+    async function loadOrders() {
+      const auth = await fetch("/api/admin/me");
+      const authData = await auth.json();
+      if (!authData.admin) {
+        router.push("/admin");
+        return;
+      }
+
+      fetch("/api/orders")
+        .then((response) => response.json())
+        .then(setOrders)
+        .catch(() => toast.error("Could not load orders"))
+        .finally(() => setLoading(false));
     }
+
+    loadOrders();
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_auth");
-    router.push("/admin");
-  };
+  const filtered = useMemo(
+    () => (filter === "All" ? orders : orders.filter((order) => order.status === filter)),
+    [filter, orders]
+  );
 
-  const updateStatus = (id: string, newStatus: string) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
+  const updateStatus = async (id: string, status: OrderStatus) => {
+    const previous = orders;
+    setOrders((current) =>
+      current.map((order) => (order.id === id ? { ...order, status } : order))
     );
-  };
 
-  const filtered = filter === "All" ? orders : orders.filter((o) => o.status === filter);
+    try {
+      const response = await fetch(`/api/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      toast.success(`Order ${id} moved to ${status}`);
+    } catch (error) {
+      setOrders(previous);
+      toast.error(error instanceof Error ? error.message : "Could not update order");
+    }
+  };
 
   return (
-    <div className="admin-wrap">
-      {/* Sidebar */}
-      <aside className="admin-sidebar">
-        <div className="admin-sidebar-logo">
-          <span className="brand-mark">UG</span>
-          <div>
-            <span className="site-logo-name">Uche's</span>
-            <span className="site-logo-sub">Admin Panel</span>
-          </div>
+    <AdminShell active="/admin/orders">
+      <div className={adminStyles.topbar}>
+        <div>
+          <h1 className={adminStyles.title}>Orders</h1>
+          <p className={adminStyles.sub}>Manage and update customer orders.</p>
         </div>
+      </div>
 
-        <nav className="admin-nav">
-          <Link href="/admin/dashboard" className="admin-nav-link">
-            Dashboard
-          </Link>
-          <Link href="/admin/orders" className="admin-nav-link is-active">
-            Orders
-          </Link>
-          <Link href="/admin/products" className="admin-nav-link">
-            Products
-          </Link>
-        </nav>
+      <div className="flex flex-wrap gap-2">
+        {["All", ...orderStatuses].map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status as OrderStatus | "All")}
+            className={`border px-4 py-2 text-sm font-black transition ${
+              filter === status
+                ? "border-[#1273c4] bg-[#1273c4] text-white"
+                : "border-[#d8e0ea] bg-white text-[#536476] hover:border-[#1273c4] hover:text-[#1273c4]"
+            }`}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
 
-        <button onClick={handleLogout} className="admin-logout-btn">
-          Sign Out
-        </button>
-      </aside>
-
-      {/* Main */}
-      <main className="admin-main">
-        <div className="admin-topbar">
-          <div>
-            <h1 className="admin-page-title">Orders</h1>
-            <p className="admin-page-sub">Manage and update customer orders.</p>
-          </div>
-        </div>
-
-        {/* Filter tabs */}
-        <div className="admin-filter-tabs">
-          {["All", ...allStatuses].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`admin-filter-tab ${filter === s ? "is-active" : ""}`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead>
+      <div className={adminStyles.tableWrap}>
+        <table className={adminStyles.table}>
+          <thead>
+            <tr>
+              {[
+                "Order ID",
+                "Customer",
+                "Phone",
+                "Product",
+                "Location",
+                "Date",
+                "Status",
+                "Update",
+              ].map((heading) => (
+                <th key={heading} className={adminStyles.th}>
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
               <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                <th>Phone</th>
-                <th>Product</th>
-                <th>Location</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Update</th>
+                <td className={adminStyles.td} colSpan={8}>
+                  Loading orders...
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filtered.map((order) => (
-                <tr key={order.id}>
-                  <td className="admin-order-id">{order.id}</td>
-                  <td>{order.customer}</td>
-                  <td className="admin-muted">{order.phone}</td>
-                  <td>{order.product}</td>
-                  <td className="admin-muted">{order.city}, {order.state}</td>
-                  <td className="admin-muted">{order.date}</td>
-                  <td>
-                    <span className={`admin-badge ${statusColors[order.status]}`}>
-                      {order.status}
-                    </span>
+            ) : (
+              filtered.map((order) => (
+                <tr key={order.id} className="hover:bg-slate-50">
+                  <td className={`${adminStyles.td} font-black text-[#1273c4]`}>
+                    {order.id}
                   </td>
-                  <td>
+                  <td className={adminStyles.td}>
+                    <p className="font-black">{order.customer}</p>
+                    <p className="mt-1 text-xs font-bold text-[#536476]">
+                      {order.email}
+                    </p>
+                  </td>
+                  <td className={adminStyles.td}>{order.phone}</td>
+                  <td className={adminStyles.td}>{order.product}</td>
+                  <td className={adminStyles.td}>
+                    {order.city}, {order.state}
+                  </td>
+                  <td className={adminStyles.td}>{order.date}</td>
+                  <td className={adminStyles.td}>
+                    <span className={statusClass(order.status)}>{order.status}</span>
+                  </td>
+                  <td className={adminStyles.td}>
                     <select
                       value={order.status}
-                      onChange={(e) => updateStatus(order.id, e.target.value)}
-                      className="admin-status-select"
+                      onChange={(event) =>
+                        updateStatus(order.id, event.target.value as OrderStatus)
+                      }
+                      className="border border-[#d8e0ea] bg-white px-3 py-2 text-sm font-bold text-[#111827] outline-none focus:border-[#1273c4]"
                     >
-                      {allStatuses.map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                      {orderStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
                       ))}
                     </select>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </main>
-    </div>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </AdminShell>
   );
 }
