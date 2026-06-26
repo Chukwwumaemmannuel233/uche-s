@@ -1,4 +1,10 @@
-import { deleteProduct, getProduct, jsonError, upsertProduct } from "@/lib/admin-store";
+import {
+  deleteProduct,
+  getProduct,
+  jsonError,
+  recordAuditLog,
+  upsertProduct,
+} from "@/lib/admin-store";
 import { getAdminSession } from "@/lib/auth";
 import type { Product } from "@/lib/store";
 
@@ -27,7 +33,15 @@ export async function PATCH(
         : Number(String(updates.price || product.price).replace(/[^\d]/g, "")),
   };
 
-  return Response.json(await upsertProduct(nextProduct));
+  const updated = await upsertProduct(nextProduct);
+  await recordAuditLog({
+    actor: "admin",
+    action: "product.updated",
+    entity: "product",
+    entityId: updated.id,
+    metadata: { name: updated.name },
+  });
+  return Response.json(updated);
 }
 
 export async function DELETE(
@@ -43,5 +57,11 @@ export async function DELETE(
   if (!deleted) {
     return jsonError("Product not found.", 404);
   }
+  await recordAuditLog({
+    actor: "admin",
+    action: "product.deleted",
+    entity: "product",
+    entityId: id,
+  });
   return Response.json({ ok: true });
 }

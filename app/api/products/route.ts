@@ -1,32 +1,47 @@
-import { createProduct, jsonError, listProducts } from "@/lib/admin-store";
+import {
+  createProduct,
+  jsonError,
+  listProducts,
+  recordAuditLog,
+} from "@/lib/admin-store";
 import { getAdminSession } from "@/lib/auth";
+import { rateLimitRequest, sanitizeText } from "@/lib/security";
 import type { Product } from "@/lib/store";
 
 function normalizeProduct(input: Partial<Product>): Product | null {
-  if (!input.name || !input.category || !input.price || !input.sku) {
+  const name = sanitizeText(input.name, 120);
+  const category = sanitizeText(input.category, 80);
+  const sku = sanitizeText(input.sku, 80);
+  const tag = sanitizeText(input.tag, 40) || "New arrival";
+  const detail = sanitizeText(input.detail, 240);
+  const description = sanitizeText(input.description || input.detail, 1200);
+  const image = sanitizeText(input.image, 1000);
+  const price = sanitizeText(input.price, 40);
+
+  if (!name || !category || !price || !sku) {
     return null;
   }
 
   const amount =
     typeof input.amount === "number"
       ? input.amount
-      : Number(String(input.price).replace(/[^\d]/g, ""));
+      : Number(String(price).replace(/[^\d]/g, ""));
 
   return {
-    id: input.id || input.sku,
-    name: input.name,
-    category: input.category,
-    price: input.price,
+    id: sanitizeText(input.id || sku, 80),
+    name,
+    category,
+    price,
     amount,
-    tag: input.tag || "New arrival",
-    detail: input.detail || "",
+    tag,
+    detail,
     finish: input.finish || "from-cyan-200 via-slate-100 to-zinc-300",
     image:
-      input.image ||
+      image ||
       "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
-    sku: input.sku,
-    description: input.description || input.detail || "",
-    stock: Number(input.stock || 0),
+    sku,
+    description,
+    stock: Math.max(0, Math.min(9999, Number(input.stock || 0))),
   };
 }
 
@@ -35,6 +50,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const limited = await rateLimitRequest("product-write", 60, 60_000);
+  if (limited) return limited;
+
   if (!(await getAdminSession())) {
     return jsonError("Unauthorized", 401);
   }
@@ -49,5 +67,13 @@ export async function POST(request: Request) {
     return jsonError("A product with this SKU already exists.", 409);
   }
 
-  return Response.json(await createProduct(product), { status: 201 });
+  const created = await createProduct(product);
+  await recordAuditLog({
+    actor: "admin",
+    action: "product.created",
+    entity: "product",
+    entityId: created.id,
+    metadata: { name: created.name },
+  });
+  return Response.json(created, { status: 201 });
 }

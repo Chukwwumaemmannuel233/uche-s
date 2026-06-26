@@ -148,12 +148,7 @@
     }
   ],
   "carts": {
-    "e5584564-216c-4b46-a652-cf1fbac65ef5": [
-      {
-        "productId": "AFD620L",
-        "quantity": 1
-      }
-    ]
+    "e5584564-216c-4b46-a652-cf1fbac65ef5": []
   },
   "contactMessages": [],
   "transactions": [],
@@ -161,6 +156,44 @@
     {
       "email": "admin@uchesgadgethub.com",
       "passwordHash": "d3e07c6f4adb301070642319bfd61f16c15f59d1e200245cc101d33bcbfa0f32"
+    }
+  ],
+  "auditLogs": [
+    {
+      "actor": "system",
+      "action": "admin_login_failed",
+      "entity": "security",
+      "entityId": "::ffff:127.0.0.1",
+      "metadata": {
+        "email": "admin@uchesgadgethub.com",
+        "ip": "::ffff:127.0.0.1"
+      },
+      "id": "876b37ba-4282-4a1c-8d81-52bb6ef10623",
+      "createdAt": "2026-06-26T18:24:12.451Z"
+    },
+    {
+      "actor": "system",
+      "action": "admin_login_failed",
+      "entity": "security",
+      "entityId": "::ffff:127.0.0.1",
+      "metadata": {
+        "email": "admin@uchesgadgethub.com",
+        "ip": "::ffff:127.0.0.1"
+      },
+      "id": "22989ea2-1bdd-4eb7-bf55-f767595cd7fc",
+      "createdAt": "2026-06-26T18:07:16.915Z"
+    },
+    {
+      "actor": "system",
+      "action": "admin_login_failed",
+      "entity": "security",
+      "entityId": "::ffff:127.0.0.1",
+      "metadata": {
+        "email": "admin@uchesgadgethub.com",
+        "ip": "::ffff:127.0.0.1"
+      },
+      "id": "369b1376-8a03-422e-9a1d-8c31c24d2851",
+      "createdAt": "2026-06-26T18:07:08.250Z"
     }
   ]
 }

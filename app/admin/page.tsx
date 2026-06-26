@@ -23,8 +23,16 @@ export default function AdminLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const text = await response.text();
+      let data: { error?: string } = {};
+      if (text) {
+        try {
+          data = JSON.parse(text) as { error?: string };
+        } catch {
+          data = { error: "Login failed." };
+        }
+      }
+      if (!response.ok) throw new Error(data.error || "Login failed.");
 
       toast.success("Welcome back");
       router.push("/admin/dashboard");

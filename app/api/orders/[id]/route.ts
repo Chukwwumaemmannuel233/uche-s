@@ -1,4 +1,4 @@
-import { jsonError, updateOrderStatus } from "@/lib/admin-store";
+import { jsonError, recordAuditLog, updateOrderStatus } from "@/lib/admin-store";
 import { getAdminSession } from "@/lib/auth";
 import { orderStatuses } from "@/lib/orders";
 import type { OrderStatus } from "@/lib/orders";
@@ -23,5 +23,12 @@ export async function PATCH(
     return jsonError("Order not found.", 404);
   }
 
+  await recordAuditLog({
+    actor: "admin",
+    action: "order.status_updated",
+    entity: "order",
+    entityId: id,
+    metadata: { status },
+  });
   return Response.json(updated);
 }

@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-import { ensureSchema, getPool, hasDatabase } from "@/lib/db";
+import { getPool, hasDatabase, resetPool } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { products } from "@/lib/store";
 import type { Product } from "@/lib/store";
@@ -35,6 +35,16 @@ export type TransactionRecord = {
   payload?: unknown;
 };
 
+export type AuditLog = {
+  id: string;
+  actor: string;
+  action: string;
+  entity: string;
+  entityId?: string;
+  metadata?: unknown;
+  createdAt: string;
+};
+
 type StoreData = {
   products: Product[];
   orders: Order[];
@@ -42,6 +52,7 @@ type StoreData = {
   contactMessages?: ContactMessage[];
   transactions?: TransactionRecord[];
   admins?: { email: string; passwordHash: string }[];
+  auditLogs?: AuditLog[];
 };
 
 const dataDir = path.join(process.cwd(), "data");
@@ -63,6 +74,7 @@ async function ensureStore() {
           contactMessages: [],
           transactions: [],
           admins: [],
+          auditLogs: [],
         },
         null,
         2
@@ -82,6 +94,7 @@ async function readFileStore(): Promise<StoreData> {
     contactMessages: parsed.contactMessages || [],
     transactions: parsed.transactions || [],
     admins: parsed.admins || [],
+    auditLogs: parsed.auditLogs || [],
   };
 }
 
@@ -124,15 +137,70 @@ function mapOrder(row: Record<string, unknown>): Order {
   };
 }
 
-async function seedProductsIfEmpty() {
-  await ensureSchema();
-  const pool = getPool();
-  const count = await pool.query<{ count: string }>("select count(*) from products");
-  if (Number(count.rows[0].count) > 0) return;
+function isTransientDatabaseError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
 
-  for (const product of products) {
-    await upsertProduct(product);
+  const code = "code" in error ? String(error.code) : "";
+  if (["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "ENETUNREACH"].includes(code)) {
+    return true;
   }
+
+  const message = "message" in error ? String(error.message).toLowerCase() : "";
+  return (
+    message.includes("connection timeout") ||
+    message.includes("connection terminated") ||
+    message.includes("timeout exceeded") ||
+    message.includes("query read timeout")
+  );
+}
+
+function handleTransientDatabaseError(error: unknown, message: string) {
+  if (!isTransientDatabaseError(error)) throw error;
+
+  resetPool();
+  console.error(message, error);
+}
+
+async function getFileCart(cartId: string, productList: Product[]) {
+  const store = await readFileStore();
+  return (store.carts?.[cartId] || [])
+    .map((item) => {
+      const product = productList.find((entry) => entry.id === item.productId);
+      return product ? { ...product, quantity: item.quantity } : null;
+    })
+    .filter(Boolean) as CartLine[];
+}
+
+async function setFileCartItem(cartId: string, productId: string, quantity: number) {
+  const store = await readFileStore();
+  const current = store.carts?.[cartId] || [];
+  const next = current.filter((item) => item.productId !== productId);
+  if (quantity > 0) next.push({ productId, quantity });
+  store.carts = { ...(store.carts || {}), [cartId]: next };
+  await writeFileStore(store);
+  return getFileCart(cartId, products);
+}
+
+async function clearFileCart(cartId: string) {
+  const store = await readFileStore();
+  store.carts = { ...(store.carts || {}), [cartId]: [] };
+  await writeFileStore(store);
+  return [];
+}
+
+async function ensureFileAdmin(email: string, password: string) {
+  const store = await readFileStore();
+  const existing = store.admins?.find((admin) => admin.email === email);
+  if (existing) return existing;
+
+  const admin = { email, passwordHash: hashPassword(password) };
+  store.admins = [...(store.admins || []), admin];
+  await writeFileStore(store);
+  return admin;
+}
+
+async function findFileAdmin(email: string) {
+  return (await readFileStore()).admins?.find((admin) => admin.email === email) || null;
 }
 
 export async function listProducts(): Promise<Product[]> {
@@ -140,9 +208,16 @@ export async function listProducts(): Promise<Product[]> {
     return (await readFileStore()).products;
   }
 
-  await seedProductsIfEmpty();
-  const result = await getPool().query("select * from products order by created_at desc");
-  return result.rows.map(mapProduct);
+  try {
+    const result = await getPool().query("select * from products order by created_at desc");
+    return result.rows.map(mapProduct);
+  } catch (error) {
+    handleTransientDatabaseError(
+      error,
+      "Product database read failed; using local product fallback."
+    );
+    return products;
+  }
 }
 
 export async function createProduct(product: Product) {
@@ -153,7 +228,6 @@ export async function createProduct(product: Product) {
     return product;
   }
 
-  await ensureSchema();
   await getPool().query(
     `insert into products
       (id, name, category, price, amount, tag, detail, finish, image, sku, description, stock)
@@ -186,7 +260,6 @@ export async function upsertProduct(product: Product) {
     return product;
   }
 
-  await ensureSchema();
   await getPool().query(
     `insert into products
       (id, name, category, price, amount, tag, detail, finish, image, sku, description, stock)
@@ -236,7 +309,6 @@ export async function deleteProduct(id: string) {
     return deleted;
   }
 
-  await ensureSchema();
   const result = await getPool().query("delete from products where id = $1", [id]);
   return (result.rowCount || 0) > 0;
 }
@@ -246,7 +318,6 @@ export async function listOrders(): Promise<Order[]> {
     return (await readFileStore()).orders;
   }
 
-  await ensureSchema();
   const result = await getPool().query("select * from orders order by created_at desc");
   return result.rows.map(mapOrder);
 }
@@ -273,7 +344,6 @@ export async function createOrder(
     return nextOrder;
   }
 
-  await ensureSchema();
   const client = await getPool().connect();
   try {
     await client.query("begin");
@@ -328,7 +398,6 @@ export async function updateOrderStatus(
     return store.orders[index];
   }
 
-  await ensureSchema();
   const result = await getPool().query(
     `update orders
      set status = $2, payment_status = coalesce($3, payment_status), updated_at = now()
@@ -342,74 +411,71 @@ export async function updateOrderStatus(
 export async function getCart(cartId: string): Promise<CartLine[]> {
   const productList = await listProducts();
 
-  if (!hasDatabase()) {
-    const store = await readFileStore();
-    return (store.carts?.[cartId] || [])
-      .map((item) => {
-        const product = productList.find((entry) => entry.id === item.productId);
-        return product ? { ...product, quantity: item.quantity } : null;
-      })
-      .filter(Boolean) as CartLine[];
+  if (!hasDatabase() || productList === products) {
+    return getFileCart(cartId, productList);
   }
 
-  await ensureSchema();
-  await getPool().query("insert into carts (id) values ($1) on conflict do nothing", [
-    cartId,
-  ]);
-  const result = await getPool().query(
-    `select p.*, ci.quantity
-     from cart_items ci
-     join products p on p.id = ci.product_id
-     where ci.cart_id = $1
-     order by p.name`,
-    [cartId]
-  );
-  return result.rows.map((row) => ({ ...mapProduct(row), quantity: Number(row.quantity) }));
+  try {
+    await getPool().query("insert into carts (id) values ($1) on conflict do nothing", [
+      cartId,
+    ]);
+    const result = await getPool().query(
+      `select p.*, ci.quantity
+       from cart_items ci
+       join products p on p.id = ci.product_id
+       where ci.cart_id = $1
+       order by p.name`,
+      [cartId]
+    );
+    return result.rows.map((row) => ({ ...mapProduct(row), quantity: Number(row.quantity) }));
+  } catch (error) {
+    handleTransientDatabaseError(error, "Cart database read failed; using local cart fallback.");
+    return getFileCart(cartId, productList);
+  }
 }
 
 export async function setCartItem(cartId: string, productId: string, quantity: number) {
   if (!hasDatabase()) {
-    const store = await readFileStore();
-    const current = store.carts?.[cartId] || [];
-    const next = current.filter((item) => item.productId !== productId);
-    if (quantity > 0) next.push({ productId, quantity });
-    store.carts = { ...(store.carts || {}), [cartId]: next };
-    await writeFileStore(store);
-    return getCart(cartId);
+    return setFileCartItem(cartId, productId, quantity);
   }
 
-  await ensureSchema();
-  await getPool().query("insert into carts (id) values ($1) on conflict do nothing", [
-    cartId,
-  ]);
-  if (quantity <= 0) {
-    await getPool().query("delete from cart_items where cart_id = $1 and product_id = $2", [
+  try {
+    await getPool().query("insert into carts (id) values ($1) on conflict do nothing", [
       cartId,
-      productId,
     ]);
-  } else {
-    await getPool().query(
-      `insert into cart_items (cart_id, product_id, quantity)
-       values ($1,$2,$3)
-       on conflict (cart_id, product_id)
-       do update set quantity = excluded.quantity`,
-      [cartId, productId, quantity]
-    );
+    if (quantity <= 0) {
+      await getPool().query("delete from cart_items where cart_id = $1 and product_id = $2", [
+        cartId,
+        productId,
+      ]);
+    } else {
+      await getPool().query(
+        `insert into cart_items (cart_id, product_id, quantity)
+         values ($1,$2,$3)
+         on conflict (cart_id, product_id)
+         do update set quantity = excluded.quantity`,
+        [cartId, productId, quantity]
+      );
+    }
+    return getCart(cartId);
+  } catch (error) {
+    handleTransientDatabaseError(error, "Cart database write failed; using local cart fallback.");
+    return setFileCartItem(cartId, productId, quantity);
   }
-  return getCart(cartId);
 }
 
 export async function clearCart(cartId: string) {
   if (!hasDatabase()) {
-    const store = await readFileStore();
-    store.carts = { ...(store.carts || {}), [cartId]: [] };
-    await writeFileStore(store);
-    return [];
+    return clearFileCart(cartId);
   }
 
-  await ensureSchema();
-  await getPool().query("delete from cart_items where cart_id = $1", [cartId]);
-  return [];
+  try {
+    await getPool().query("delete from cart_items where cart_id = $1", [cartId]);
+    return [];
+  } catch (error) {
+    handleTransientDatabaseError(error, "Cart database delete failed; using local cart fallback.");
+    return clearFileCart(cartId);
+  }
 }
 
 export async function createContactMessage(
@@ -429,7 +495,6 @@ export async function createContactMessage(
     return message;
   }
 
-  await ensureSchema();
   await getPool().query(
     `insert into contact_messages
       (id, name, phone, request_type, product, message, status)
@@ -452,7 +517,6 @@ export async function listContactMessages(): Promise<ContactMessage[]> {
     return (await readFileStore()).contactMessages || [];
   }
 
-  await ensureSchema();
   const result = await getPool().query(
     "select *, request_type as \"requestType\", created_at as \"createdAt\" from contact_messages order by created_at desc"
   );
@@ -480,7 +544,6 @@ export async function recordTransaction(transaction: TransactionRecord) {
     return transaction;
   }
 
-  await ensureSchema();
   await getPool().query(
     `insert into transactions
       (id, order_id, reference, amount, status, channel, customer_email, gateway_response, payload)
@@ -509,12 +572,64 @@ export async function recordTransaction(transaction: TransactionRecord) {
   return transaction;
 }
 
+export async function recordAuditLog(
+  input: Omit<AuditLog, "id" | "createdAt">
+) {
+  const auditLog: AuditLog = {
+    ...input,
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!hasDatabase()) {
+    const store = await readFileStore();
+    store.auditLogs = [auditLog, ...(store.auditLogs || [])].slice(0, 500);
+    await writeFileStore(store);
+    return auditLog;
+  }
+
+  try {
+    await getPool().query(
+      `insert into audit_logs (id, actor, action, entity, entity_id, metadata)
+       values ($1,$2,$3,$4,$5,$6)`,
+      [
+        auditLog.id,
+        auditLog.actor,
+        auditLog.action,
+        auditLog.entity,
+        auditLog.entityId,
+        JSON.stringify(auditLog.metadata || {}),
+      ]
+    );
+  } catch (error) {
+    handleTransientDatabaseError(error, "Audit log database write failed; using local fallback.");
+    const store = await readFileStore();
+    store.auditLogs = [auditLog, ...(store.auditLogs || [])].slice(0, 500);
+    await writeFileStore(store);
+  }
+  return auditLog;
+}
+
+export async function listAuditLogs(): Promise<AuditLog[]> {
+  if (!hasDatabase()) {
+    return (await readFileStore()).auditLogs || [];
+  }
+
+  const result = await getPool().query(
+    `select id, actor, action, entity, entity_id as "entityId",
+      metadata, created_at as "createdAt"
+     from audit_logs
+     order by created_at desc
+     limit 500`
+  );
+  return result.rows;
+}
+
 export async function listTransactions(): Promise<TransactionRecord[]> {
   if (!hasDatabase()) {
     return (await readFileStore()).transactions || [];
   }
 
-  await ensureSchema();
   const result = await getPool().query("select * from transactions order by created_at desc");
   return result.rows.map((row) => ({
     id: row.id,
@@ -530,25 +645,23 @@ export async function listTransactions(): Promise<TransactionRecord[]> {
 }
 
 export async function ensureAdmin(email: string, password: string) {
-  const passwordHash = hashPassword(password);
-
   if (!hasDatabase()) {
-    const store = await readFileStore();
-    if (!store.admins?.some((admin) => admin.email === email)) {
-      store.admins = [...(store.admins || []), { email, passwordHash }];
-      await writeFileStore(store);
-    }
-    return { email, passwordHash };
+    return ensureFileAdmin(email, password);
   }
 
-  await ensureSchema();
-  await getPool().query(
-    `insert into admins (id, email, password_hash)
-     values ($1,$2,$3)
-     on conflict (email) do nothing`,
-    [randomUUID(), email, passwordHash]
-  );
-  return { email, passwordHash };
+  const passwordHash = hashPassword(password);
+  try {
+    await getPool().query(
+      `insert into admins (id, email, password_hash)
+       values ($1,$2,$3)
+       on conflict (email) do nothing`,
+      [randomUUID(), email, passwordHash]
+    );
+    return { email, passwordHash };
+  } catch (error) {
+    handleTransientDatabaseError(error, "Admin database write failed; using local fallback.");
+    return ensureFileAdmin(email, password);
+  }
 }
 
 export async function findAdmin(email: string) {
@@ -556,15 +669,19 @@ export async function findAdmin(email: string) {
   await ensureAdmin(process.env.ADMIN_EMAIL || "admin@uchesgadgethub.com", fallbackPassword);
 
   if (!hasDatabase()) {
-    return (await readFileStore()).admins?.find((admin) => admin.email === email) || null;
+    return findFileAdmin(email);
   }
 
-  await ensureSchema();
-  const result = await getPool().query(
-    "select email, password_hash as \"passwordHash\" from admins where email = $1",
-    [email]
-  );
-  return result.rows[0] || null;
+  try {
+    const result = await getPool().query(
+      "select email, password_hash as \"passwordHash\" from admins where email = $1",
+      [email]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    handleTransientDatabaseError(error, "Admin database read failed; using local fallback.");
+    return findFileAdmin(email);
+  }
 }
 
 export function jsonError(message: string, status = 400) {

@@ -1,5 +1,7 @@
 import { createHash } from "crypto";
 import { getAdminSession } from "@/lib/auth";
+import { recordAuditLog } from "@/lib/admin-store";
+import { isAllowedUpload, rateLimitRequest, safeError } from "@/lib/security";
 
 function signCloudinary(params: Record<string, string>, secret: string) {
   const serialized = Object.keys(params)
@@ -11,9 +13,12 @@ function signCloudinary(params: Record<string, string>, secret: string) {
 }
 
 export async function POST(request: Request) {
+  const limited = await rateLimitRequest("cloudinary-upload", 12, 60_000);
+  if (limited) return limited;
+
   const session = await getAdminSession();
   if (!session) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return safeError("Unauthorized", 401);
   }
 
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -21,17 +26,16 @@ export async function POST(request: Request) {
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
   if (!cloudName || !apiKey || !apiSecret) {
-    return Response.json(
-      { error: "Cloudinary environment variables are not configured." },
-      { status: 500 }
-    );
+    return safeError("Image upload is not configured.", 500);
   }
 
   const incoming = await request.formData();
   const file = incoming.get("file");
   if (!(file instanceof File)) {
-    return Response.json({ error: "Image file is required." }, { status: 400 });
+    return safeError("Image file is required.", 400);
   }
+  const uploadError = isAllowedUpload(file);
+  if (uploadError) return safeError(uploadError, 400);
 
   const timestamp = String(Math.round(Date.now() / 1000));
   const folder = process.env.CLOUDINARY_FOLDER || "uches-gadget-hub";
@@ -53,11 +57,14 @@ export async function POST(request: Request) {
 
   const data = await response.json();
   if (!response.ok) {
-    return Response.json(
-      { error: data.error?.message || "Cloudinary upload failed." },
-      { status: response.status }
-    );
+    return safeError("Cloudinary upload failed.", response.status);
   }
 
+  await recordAuditLog({
+    actor: session.email,
+    action: "image.uploaded",
+    entity: "cloudinary_asset",
+    entityId: data.public_id,
+  });
   return Response.json({ url: data.secure_url, publicId: data.public_id });
 }

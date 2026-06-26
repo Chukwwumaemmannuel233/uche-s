@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   CreditCard,
+  History,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/messages", label: "Messages", icon: Mail },
   { href: "/admin/transactions", label: "Transactions", icon: CreditCard },
+  { href: "/admin/audit", label: "Audit", icon: History },
 ];
 
 export const adminStyles = {

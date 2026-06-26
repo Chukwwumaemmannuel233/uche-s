@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { createOrder, recordTransaction } from "@/lib/admin-store";
+import { isEmail, rateLimitRequest, safeError, sanitizeEmail, sanitizeText } from "@/lib/security";
 
 type PaystackPayload = {
   email: string;
@@ -16,6 +17,9 @@ type PaystackPayload = {
 };
 
 export async function POST(request: Request) {
+  const limited = await rateLimitRequest("paystack-initialize", 20, 60_000);
+  if (limited) return limited;
+
   const secretKey = process.env.PAYSTACK_SECRET_KEY;
 
   if (!secretKey) {
@@ -26,19 +30,17 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as PaystackPayload;
+  const email = sanitizeEmail(body.email);
 
-  if (!body.email || !body.amount || !body.callbackUrl) {
-    return Response.json(
-      { error: "Email, amount, and callback URL are required." },
-      { status: 400 }
-    );
+  if (!email || !isEmail(email) || !body.amount || !body.callbackUrl) {
+    return safeError("Valid email, amount, and callback URL are required.", 400);
   }
 
   const reference = `uche_${Date.now()}`;
   const order = await createOrder({
-    customer: body.customer?.name || String(body.metadata.customer_name || "Customer"),
-    email: body.email,
-    phone: body.customer?.phone || String(body.metadata.phone || ""),
+    customer: sanitizeText(body.customer?.name || body.metadata.customer_name || "Customer", 120),
+    email,
+    phone: sanitizeText(body.customer?.phone || body.metadata.phone || "", 40),
     product: (body.items || []).map((item) => item.name).join(", "),
     city: body.customer?.city || "",
     state: body.customer?.state || "",
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      email: body.email,
+      email,
       amount: Math.round(body.amount * 100),
       currency: "NGN",
       callback_url: body.callbackUrl,
@@ -85,7 +87,7 @@ export async function POST(request: Request) {
     reference,
     amount: body.amount,
     status: "initialized",
-    customerEmail: body.email,
+    customerEmail: email,
     payload: data,
   });
 

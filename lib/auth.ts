@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 
 const cookieName = "uche_admin_session";
@@ -8,13 +8,28 @@ function hashSecret(secret: string) {
 }
 
 export function hashPassword(password: string) {
-  return hashSecret(`${process.env.ADMIN_PASSWORD_SALT || "local"}:${password}`);
+  const salt = randomBytes(16).toString("hex");
+  const pepper = process.env.ADMIN_PASSWORD_PEPPER || process.env.ADMIN_PASSWORD_SALT || "";
+  const hash = scryptSync(`${password}:${pepper}`, salt, 64).toString("hex");
+  return `scrypt$${salt}$${hash}`;
 }
 
 export function verifyPassword(password: string, hash: string) {
-  const incoming = Buffer.from(hashPassword(password));
+  if (hash.startsWith("scrypt$")) {
+    const [, salt, storedHash] = hash.split("$");
+    const pepper = process.env.ADMIN_PASSWORD_PEPPER || process.env.ADMIN_PASSWORD_SALT || "";
+    const incoming = Buffer.from(
+      scryptSync(`${password}:${pepper}`, salt, 64).toString("hex")
+    );
+    const stored = Buffer.from(storedHash);
+    return incoming.length === stored.length && timingSafeEqual(incoming, stored);
+  }
+
+  const legacy = Buffer.from(
+    hashSecret(`${process.env.ADMIN_PASSWORD_SALT || "local"}:${password}`)
+  );
   const stored = Buffer.from(hash);
-  return incoming.length === stored.length && timingSafeEqual(incoming, stored);
+  return legacy.length === stored.length && timingSafeEqual(legacy, stored);
 }
 
 export function createSessionValue(email: string) {

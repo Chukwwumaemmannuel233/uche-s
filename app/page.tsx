@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { connection } from "next/server";
 import { ProductCard } from "@/components/product-card";
 import { Footer, Header } from "@/components/site-shell";
 import { listProducts } from "@/lib/admin-store";
@@ -70,6 +71,7 @@ const promises = [
 ];
 
 export default async function Home() {
+  await connection();
   const featuredProducts = (await listProducts()).slice(0, 3);
 
   return (
@@ -207,11 +209,11 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-2">
-          <div className="request-copy">
+        <section className="mx-auto grid max-w-7xl items-center gap-10 px-6 py-20 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="request-copy max-w-2xl">
             <p className="eyebrow">Abuja sourcing desk</p>
 
-            <h2 className="mt-4 text-4xl font-bold leading-tight">
+            <h2 className="mt-4 text-4xl font-black leading-tight text-[#111827]">
               Send the product you want. We will help confirm the right option.
             </h2>
 
@@ -232,30 +234,49 @@ export default async function Home() {
             </div>
           </div>
 
-          <div className="relative flex items-center justify-center min-h-[400px]">
-            <Image
-              src="/images/cutouts/air-condition-cutout.jpg"
-              alt=""
-              width={360}
-              height={240}
-              className="request-tv"
-            />
+          <div className="relative min-h-[28rem] overflow-hidden bg-[#101928] p-6 text-white sm:p-8">
+            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/35 to-transparent" />
+            <div className="relative z-10 grid h-full min-h-[24rem] grid-cols-[0.8fr_1fr] gap-4">
+              <div className="flex flex-col justify-between gap-4">
+                <div className="border border-white/10 bg-white/10 p-4">
+                  <span className="text-xs font-black uppercase tracking-[0.16em] text-sky-200">
+                    Confirmed picks
+                  </span>
+                  <p className="mt-3 text-sm leading-6 text-white/75">
+                    TVs, fridges, AC units, power backup, phones, and work
+                    devices are reviewed before delivery.
+                  </p>
+                </div>
+                <div className="relative min-h-40">
+                  <Image
+                    src="/images/cutouts/inverter-cutout.png"
+                    alt="Power inverter"
+                    fill
+                    sizes="(max-width: 1024px) 35vw, 18rem"
+                    className="object-contain drop-shadow-2xl"
+                  />
+                </div>
+              </div>
 
-            <Image
-              src="/images/cutouts/fridge-cutout.jpg"
-              alt=""
-              width={160}
-              height={220}
-              className="absolute bottom-0 left-8"
-            />
-
-            <Image
-              src="/images/cutouts/inverter-cutout.jpg"
-              alt=""
-              width={220}
-              height={180}
-              className="absolute top-8 right-8"
-            />
+              <div className="relative">
+                <Image
+                  src="/images/cutouts/fridge-cutout.png"
+                  alt="Modern refrigerator"
+                  fill
+                  sizes="(max-width: 1024px) 50vw, 28rem"
+                  className="object-contain object-bottom drop-shadow-2xl"
+                />
+                <div className="absolute bottom-6 right-0 h-32 w-48 sm:h-40 sm:w-60">
+                  <Image
+                    src="/images/cutouts/aircon-cutout.png"
+                    alt="Air conditioner"
+                    fill
+                    sizes="(max-width: 1024px) 40vw, 18rem"
+                    className="object-contain drop-shadow-2xl"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </main>

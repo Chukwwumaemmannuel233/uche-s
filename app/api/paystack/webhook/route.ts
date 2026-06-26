@@ -1,5 +1,5 @@
 import { createHmac, randomUUID } from "crypto";
-import { recordTransaction, updateOrderStatus } from "@/lib/admin-store";
+import { recordAuditLog, recordTransaction, updateOrderStatus } from "@/lib/admin-store";
 
 export async function POST(request: Request) {
   const secretKey = process.env.PAYSTACK_SECRET_KEY;
@@ -33,6 +33,13 @@ export async function POST(request: Request) {
 
   if (event.event === "charge.success" && orderId) {
     await updateOrderStatus(orderId, "Paid", "paid");
+    await recordAuditLog({
+      actor: "paystack",
+      action: "payment.confirmed",
+      entity: "order",
+      entityId: orderId,
+      metadata: { reference: data.reference },
+    });
   }
 
   return Response.json({ received: true });
