@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -37,7 +38,8 @@ export default function AdminLoginPage() {
       toast.success("Welcome back");
       router.push("/admin/dashboard");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid admin credentials";
+      const message =
+        error instanceof Error ? error.message : "Invalid admin credentials";
       setError(message);
       toast.error(message);
     }
@@ -47,7 +49,13 @@ export default function AdminLoginPage() {
     <main className="grid min-h-screen place-items-center bg-[#f6f9fc] p-6">
       <section className="grid w-full max-w-md gap-7 border border-[#d8e0ea] bg-white p-8">
         <div className="flex items-center gap-3">
-          <span className="brand-mark">UG</span>
+          <Image
+            src="/images/logo.png"
+            alt="Uche's Gadget Hub"
+            width={55}
+            height={55}
+            priority
+          />
           <div>
             <span className="block text-sm font-black uppercase tracking-[0.16em] text-[#111827]">
               Uche&apos;s
@@ -60,7 +68,9 @@ export default function AdminLoginPage() {
 
         <div>
           <h1 className="text-2xl font-black text-[#111827]">Admin Login</h1>
-          <p className="mt-1 text-sm text-[#536476]">Sign in to manage your store.</p>
+          <p className="mt-1 text-sm text-[#536476]">
+            Sign in to manage your store.
+          </p>
         </div>
 
         <div className="grid gap-4">

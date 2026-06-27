@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { MessageCircle } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
 
 const navItems = [
   { href: "/shop", label: "Shop" },
   { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },              
-  { href: "/services", label: "Services" },              
+  { href: "/contact", label: "Contact" },
+  { href: "/services", label: "Services" },
 ];
 
 function CartIcon() {
@@ -38,7 +39,13 @@ export function Header() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
-          <span className="brand-mark">UG</span>
+          <Image
+            src="/images/logo1.png"
+            alt="Uche's Gadget Hub"
+            width={55}
+            height={55}
+            priority
+          />
 
           <div>
             <span className="block text-sm font-black uppercase tracking-[0.16em] text-[#0f172a]">
@@ -115,7 +122,7 @@ export function Header() {
 export function WhatsAppFloat() {
   const phone = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "2348005550199";
   const message = encodeURIComponent(
-    "Hello Uche's Gadget Hub, I need help with a product."
+    "Hello Uche's Gadget Hub, I need help with a product.",
   );
 
   return (
@@ -135,13 +142,19 @@ export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-   <footer className="bg-[#0f172a] text-white">
+    <footer className="bg-[#0f172a] text-white">
       <div className="mx-auto max-w-7xl px-6 py-12">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div>
             <div className="mb-4 flex items-center gap-3">
-              <span className="brand-mark">UG</span>
+              <Image
+                src="/images/logo.png"
+                alt="Uche's Gadget Hub"
+                width={55}
+                height={55}
+                priority
+              />
               <h3 className="font-bold">Uche&apos;s Gadget Hub</h3>
             </div>
 

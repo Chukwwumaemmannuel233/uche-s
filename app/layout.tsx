@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     siteName: "Uche's Gadget Hub",
     images: [
       {
-        url: "/images/cutouts/tcl-tv-cutout.png",
+        url: "/images/icon.png",
         width: 1200,
         height: 630,
         alt: "Uche's Gadget Hub electronics and appliances",
